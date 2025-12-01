@@ -10,7 +10,7 @@ use std::io::{Read, Write};
 use std::thread::{self, JoinHandle, sleep};
 use std::time::Duration;
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result as AnyResult};
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 //                                             Globals
@@ -89,7 +89,7 @@ fn main() {
             }
         };
 
-        let port = match connect_to_port(&port_name) {
+        let serial_port = match connect_to_port(&port_name) {
             Ok(p) => p,
             Err(e) => {
                 eprintln!("\n{}\n", e);
@@ -97,7 +97,7 @@ fn main() {
             }
         };
 
-        if let Err(e) = handle_serial_read(port) {
+        if let Err(e) = handle_serial_port(serial_port) {
             eprintln!("\n\nError: {}", e);
             eprintln!("Disconnected. Retrying Connection...\n");
             continue;
@@ -111,18 +111,18 @@ fn main() {
 
 // ———————————————————————————————————————————— Ports ——————————————————————————————————————————————
 
-fn find_port(input_port: &str) -> Result<String> {
+fn find_port(port_name: &str) -> AnyResult<String> {
     loop {
-        let ports = serialport::available_ports().context("Failed to list ports")?;
+        let serial_port = serialport::available_ports().context("Failed to list ports")?;
 
-        if !input_port.is_empty() {
-            if ports.iter().any(|p| p.port_name == input_port) {
-                return Ok(input_port.to_string());
+        if !port_name.is_empty() {
+            if serial_port.iter().any(|p| p.port_name == port_name) {
+                return Ok(port_name.to_string());
             }
         }
         else {
             // Get highest port
-            if let Some(port) = ports
+            if let Some(port) = serial_port
                 .iter()
                 .max_by_key(|p| p.port_name.char_indices().last().unwrap_or((0, '0')).1)
             {
@@ -136,7 +136,7 @@ fn find_port(input_port: &str) -> Result<String> {
     }
 }
 
-fn connect_to_port(port_name: &str) -> Result<PortType> {
+fn connect_to_port(port_name: &str) -> AnyResult<PortType> {
     print!("Connecting to port: {port_name}");
     io::stdout().flush()?;
 
@@ -166,10 +166,10 @@ fn connect_to_port(port_name: &str) -> Result<PortType> {
 
 // ————————————————————————————————————— Handle Serial Data ————————————————————————————————————————
 
-fn handle_serial_read(port: PortType) -> Result<()> {
+fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
     let (main_tx, main_rx) = mpsc::channel::<ThreadMsg>();
 
-    spawn_reader_thread(port, main_tx.clone());
+    spawn_serial_thread(serial_port, main_tx.clone());
 
     loop {
         let msg = main_rx.recv()?;
@@ -216,7 +216,7 @@ pub enum ThreadMsg {
     Data(Data),
 }
 
-fn spawn_reader_thread(mut serial_port: PortType, tx: mpsc::Sender<ThreadMsg>) -> JoinHandle<()> {
+fn spawn_serial_thread(mut serial_port: PortType, tx: mpsc::Sender<ThreadMsg>) -> JoinHandle<()> {
     thread::spawn(move || {
         //
         tx.send(ThreadMsg::Started).unwrap();
@@ -328,7 +328,7 @@ impl Data {
 
 // ———————————————————————————————————————— Process Data ———————————————————————————————————————————
 
-pub fn process_data(data: Data) -> Result<()> {
+pub fn process_data(data: Data) -> AnyResult<()> {
     // TODO: do something with data
     println!("Thread Data: {:?}", data);
     Ok(())

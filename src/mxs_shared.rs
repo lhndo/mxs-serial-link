@@ -1,18 +1,17 @@
+//! MXS Protocol (MiXed Stream Protocol)
+//!
+//! A simple protocol for extracting structured packets from mixed ASCII/binary data streams.
+//! Commonly used for serial/USB communications where debug output and structured data coexist.
+//! No CRC performed
+//!
+//! Packet Structure:
+//! [MARKER:2][TYPE:1][LENGTH 0:1]
+//! [MARKER:2][TYPE:1][LENGTH N:1][DATA:N]
+
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 //                                           MXS Protocol
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 
-/// MXS Protocol (MiXed Stream Protocol)
-///
-/// A simple protocol for extracting structured packets from mixed ASCII/binary data streams.
-/// Commonly used for serial/USB communications where debug output and structured data coexist.
-/// No CRC performed
-///
-/// Packet Structure:
-/// [MARKER:2][TYPE:1][LENGTH 0:1]
-/// [MARKER:2][TYPE:1][LENGTH N:1][DATA:N]
-///
-///  
 pub const MARKER: &[u8] = &[0xAA, 0x55];
 
 pub const MARKER_LEN: usize = MARKER.len();
