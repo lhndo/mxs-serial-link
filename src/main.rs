@@ -3,7 +3,7 @@ mod mxs_shared;
 
 use mxs_decoder::*;
 
-use std::sync::mpsc;
+use std::sync::{OnceLock, mpsc};
 use std::{env, io};
 
 use std::io::{Read, Write};
@@ -19,6 +19,9 @@ use anyhow::{Context, Result};
 const TIMEOUT: Duration = Duration::from_millis(500);
 const READ_BUFFER_SIZE: usize = 2000;
 
+/// Direct mode skips MXS packet filtering
+static DIRECT_MODE: OnceLock<bool> = OnceLock::new();
+
 #[cfg(unix)]
 type PortType = serialport::TTYPort;
 #[cfg(windows)]
@@ -31,20 +34,35 @@ type PortType = serialport::COMPort;
 fn main() {
     let args: Vec<String> = env::args().collect();
     println!("\n=== Serial Link Started ===");
-    println!("     with MXS Protocol \n");
 
-    loop {
-        let input_port = args.get(1).map(|s| s.as_str()).unwrap_or("");
+    // Direct mode skips MXS packet filtering
+    let direct = if args.contains(&"--direct".to_string()) {
+        println!("        Direct mode \n");
+        true
+    }
+    else {
+        println!("     with MXS Protocol \n");
+        false
+    };
 
-        if input_port.is_empty() {
-            println!("\nPort not provided. Connecting to largest port number.");
-        }
-        else {
-            println!("\nInput Port");
-            println!("==============");
-            println!("{input_port}");
-        }
+    DIRECT_MODE.set(direct).ok();
 
+    // First argument should be the port name
+    let input_port = args
+        .get(1)
+        .map(|s| if s != "--direct" { s } else { "" })
+        .unwrap_or("");
+
+    if input_port.is_empty() {
+        println!("\nPort not provided. Connecting to largest port number.");
+    }
+    else {
+        println!("\nInput Port");
+        println!("==============");
+        println!("{input_port}");
+    }
+
+    'main: loop {
         println!("\nAvailable Ports");
         println!("==============");
         if let Ok(ports) = serialport::available_ports() {
@@ -198,7 +216,7 @@ pub enum ThreadMsg {
     Data(Data),
 }
 
-fn spawn_reader_thread(mut port: PortType, tx: mpsc::Sender<ThreadMsg>) -> JoinHandle<()> {
+fn spawn_reader_thread(mut serial_port: PortType, tx: mpsc::Sender<ThreadMsg>) -> JoinHandle<()> {
     thread::spawn(move || {
         //
         tx.send(ThreadMsg::Started).unwrap();
@@ -207,9 +225,17 @@ fn spawn_reader_thread(mut port: PortType, tx: mpsc::Sender<ThreadMsg>) -> JoinH
         let mut raw_read = [0u8; READ_BUFFER_SIZE];
 
         'read: loop {
-            match port.read(&mut raw_read) {
+            match serial_port.read(&mut raw_read) {
                 Ok(n) => {
                     buffer.extend_from_slice(&raw_read[..n]);
+
+                    if *DIRECT_MODE.get().unwrap() {
+                        tx.send(ThreadMsg::Print(format!("{}", String::from_utf8_lossy(&buffer))))
+                            .unwrap();
+                        buffer.clear();
+
+                        continue 'read;
+                    }
 
                     let MxsFilterResult {
                         skipped_data,
