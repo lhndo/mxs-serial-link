@@ -214,7 +214,7 @@ pub fn stdout_init() {
     stdout.execute(cursor::MoveToRow(rows - TERM_PAD - 1)); // Move to upper region
 }
 
-/// Init Terminal
+/// De-init Terminal
 pub fn stdout_de_init() {
     let mut stdout = std::io::stdout();
     let (_cols, rows) = terminal::size().unwrap();
