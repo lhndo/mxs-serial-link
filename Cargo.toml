@@ -20,6 +20,8 @@ publish    = false
 [dependencies]
 
 anyhow     = "1.0.100"
+crossterm  = "0.29.0"
+ctrlc      = "3.5.1"
 serialport = "4.8.1"
 
 

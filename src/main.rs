@@ -1,14 +1,15 @@
 mod mxs_decoder;
 mod mxs_shared;
+mod stdio_helper;
+
+use std::env;
+use std::io::Read;
+use std::sync::{OnceLock, mpsc};
+use std::thread::{self, JoinHandle, sleep};
 
 use mxs_decoder::*;
-
-use std::sync::{OnceLock, mpsc};
-use std::{env, io};
-
-use std::io::{Read, Write};
-use std::thread::{self, JoinHandle, sleep};
-use std::time::Duration;
+use serialport::SerialPort;
+use stdio_helper::*;
 
 use anyhow::{Context, Result as AnyResult};
 
@@ -32,6 +33,12 @@ type PortType = serialport::COMPort;
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 
 fn main() {
+    // ——————————————————————————————————————— Stdio Init ——————————————————————————————————————————
+
+    init_process!();
+
+    // —————————————————————————————————————————— Args —————————————————————————————————————————————
+
     let args: Vec<String> = env::args().collect();
     println!("\n=== Serial Link Started ===");
 
@@ -61,6 +68,8 @@ fn main() {
         println!("==============");
         println!("{input_port}");
     }
+
+    // ———————————————————————————————————————— Main Loop ——————————————————————————————————————————
 
     'main: loop {
         println!("\nAvailable Ports");
@@ -168,42 +177,76 @@ fn connect_to_port(port_name: &str) -> AnyResult<PortType> {
 
 fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
     let (main_tx, main_rx) = mpsc::channel::<ThreadMsg>();
+    let (thread_tx, thread_rx) = mpsc::channel::<String>();
+    let port_name = serial_port.name().unwrap();
 
-    spawn_serial_thread(serial_port, main_tx.clone());
+    spawn_serial_thread(serial_port, main_tx.clone(), thread_rx);
+
+    let mut stdout = std::io::stdout();
+    let mut std_output = String::new();
+    let mut std_input = String::new();
+    let mut std_input_history = VecDeque::<String>::new();
 
     loop {
-        let msg = main_rx.recv()?;
-        match msg {
-            ThreadMsg::Print(s) => {
-                print!("{s}");
-                continue;
-            }
-            ThreadMsg::Error(e) => {
-                eprintln!("Thread Error: {}", e);
-                continue;
-            }
-            ThreadMsg::Data(data) => {
-                process_data(data)?;
-            }
-            ThreadMsg::Done => {
-                println!("Thread Done");
-                continue;
-            }
-            ThreadMsg::Started => {
-                println!("\nThread Started");
-                continue;
-            }
-            ThreadMsg::Exiting => {
-                println!("\nThread Exiting");
-                break;
+        // let msg = main_rx.recv()?;
+        if let Ok(msg) = main_rx.try_recv() {
+            match msg {
+                ThreadMsg::Print(s) => {
+                    std_output.push_str(&s);
+                }
+                ThreadMsg::Error(e) => {
+                    eprintln!("Thread Error: {}", e);
+                    continue;
+                }
+                ThreadMsg::Data(data) => {
+                    // process_data(data)?;
+                }
+                ThreadMsg::Done => {
+                    std_output.push_str(&"\nThread Done\n");
+                }
+                ThreadMsg::Started => {
+                    std_output.push_str(&"\nThread Started\n");
+                }
+                ThreadMsg::Exiting => {
+                    std_output.push_str(&"\nThread Exiting\n");
+                    break;
+                }
             }
         }
+
+        // Read stdin raw - non-blocking
+        stdin_read_raw(&mut std_input, &mut std_input_history)?;
+
+        // Detect new line in input buffer
+        if std_input.ends_with('\n') {
+            std_output.push_str(&format!("\n{} {}", ">>:".green(), std_input.clone().blue()));
+            thread_tx.send(std_input.clone())?; // Sending to serial thread
+            std_input.clear();
+        }
+
+        // Output buffer
+        stdout.write(std_output.as_bytes())?;
+        std_output.clear();
+
+        // Format status msg
+        let status_bar_msg = format_args!(
+            "{} {} {}",
+            port_name.clone().red(),
+            ">>:".green(),
+            std_input.clone().blue()
+        )
+        .to_string();
+
+        print_status_bar(&status_bar_msg);
+
+        // Avoiding a tight loop
+        thread::sleep(Duration::from_millis(10));
     }
     Ok(())
 }
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————
-//                                          Reader Thread
+//                                          Serial Thread
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 
 #[derive(Debug)]
@@ -216,25 +259,39 @@ pub enum ThreadMsg {
     Data(Data),
 }
 
-fn spawn_serial_thread(mut serial_port: PortType, tx: mpsc::Sender<ThreadMsg>) -> JoinHandle<()> {
+fn spawn_serial_thread(
+    mut serial_port: PortType,
+    main_tx: mpsc::Sender<ThreadMsg>,
+    thread_rx: mpsc::Receiver<String>,
+) -> JoinHandle<()> {
     thread::spawn(move || {
-        //
-        tx.send(ThreadMsg::Started).unwrap();
+        main_tx.send(ThreadMsg::Started).unwrap();
 
         let mut buffer = Vec::<u8>::with_capacity(READ_BUFFER_SIZE);
         let mut raw_read = [0u8; READ_BUFFER_SIZE];
 
-        'read: loop {
+        'serial_rw: loop {
+            // Serial Write
+            if let Ok(output_msg) = thread_rx.try_recv() {
+                if let Err(e) = serial_port.write(output_msg.as_bytes()) {
+                    main_tx
+                        .send(ThreadMsg::Error(format!("Serial write error: {:?}", e)))
+                        .unwrap();
+                    break 'serial_rw;
+                };
+            }
+
+            // Serial Read
             match serial_port.read(&mut raw_read) {
                 Ok(n) => {
                     buffer.extend_from_slice(&raw_read[..n]);
 
                     if *DIRECT_MODE.get().unwrap() {
-                        tx.send(ThreadMsg::Print(format!("{}", String::from_utf8_lossy(&buffer))))
+                        main_tx
+                            .send(ThreadMsg::Print(format!("{}", String::from_utf8_lossy(&buffer))))
                             .unwrap();
                         buffer.clear();
-
-                        continue 'read;
+                        continue 'serial_rw;
                     }
 
                     let MxsFilterResult {
@@ -245,11 +302,12 @@ fn spawn_serial_thread(mut serial_port: PortType, tx: mpsc::Sender<ThreadMsg>) -
 
                     // Handle skipped non-packet slice
                     if !skipped_data.is_empty() {
-                        tx.send(ThreadMsg::Print(format!(
-                            "{}",
-                            String::from_utf8_lossy(&skipped_data)
-                        )))
-                        .unwrap();
+                        main_tx
+                            .send(ThreadMsg::Print(format!(
+                                "{}",
+                                String::from_utf8_lossy(&skipped_data)
+                            )))
+                            .unwrap();
                     }
 
                     // ---- Process Packets based on type
@@ -261,22 +319,26 @@ fn spawn_serial_thread(mut serial_port: PortType, tx: mpsc::Sender<ThreadMsg>) -
                                     let packet_data = packet.data;
 
                                     if let Some(data) = Data::try_from(packet_data) {
-                                        tx.send(ThreadMsg::Data(data)).unwrap();
+                                        main_tx.send(ThreadMsg::Data(data)).unwrap();
                                     }
                                     else {
-                                        tx.send(ThreadMsg::Error(
-                                            "Couldn't convert byte stream into data".into(),
-                                        ))
-                                        .unwrap();
+                                        main_tx
+                                            .send(ThreadMsg::Error(
+                                                "Couldn't convert byte stream into data".into(),
+                                            ))
+                                            .unwrap();
                                     }
                                 }
                                 // Unsized Msg Packets
                                 MxsPacketType::End => {
-                                    tx.send(ThreadMsg::Print("Received: End\n".into())).unwrap();
+                                    main_tx
+                                        .send(ThreadMsg::Print("Received: End\n".into()))
+                                        .unwrap();
                                 }
 
                                 p => {
-                                    tx.send(ThreadMsg::Print(format!("Received: {:?}\n", p)))
+                                    main_tx
+                                        .send(ThreadMsg::Print(format!("Received: {:?}\n", p)))
                                         .unwrap();
                                 }
                             }
@@ -292,14 +354,16 @@ fn spawn_serial_thread(mut serial_port: PortType, tx: mpsc::Sender<ThreadMsg>) -
 
                 // Error > Return
                 Err(ref e) => {
-                    let _ = tx.send(ThreadMsg::Error(format!("Serial read error: {:?}", e)));
-                    break 'read;
+                    main_tx
+                        .send(ThreadMsg::Error(format!("Serial read error: {:?}", e)))
+                        .unwrap();
+                    break 'serial_rw;
                 }
             };
         }
 
         // Done
-        tx.send(ThreadMsg::Exiting).unwrap();
+        main_tx.send(ThreadMsg::Exiting).unwrap();
     })
 }
 
