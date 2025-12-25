@@ -40,10 +40,25 @@ fn main() {
     // —————————————————————————————————————————— Args —————————————————————————————————————————————
 
     let args: Vec<String> = env::args().collect();
+
+    // Print Help
+    if args.contains(&"help".to_string()) {
+        print!(
+            r#" 
+  MXS Serial Link - Serial Communication Program for Embedded Applications
+
+        [port]   - port name. Defaults to largest port 
+        direct   - direct mode. Skips MXP packet filtering 
+        help     - displays this message 
+           "#
+        );
+        exit_process!();
+    }
+
     println!("\n=== Serial Link Started ===");
 
     // Direct mode skips MXS packet filtering
-    let direct = if args.contains(&"--direct".to_string()) {
+    let direct = if args.contains(&"direct".to_string()) {
         println!("        Direct mode \n");
         true
     }
@@ -57,7 +72,7 @@ fn main() {
     // First argument should be the port name
     let input_port = args
         .get(1)
-        .map(|s| if s != "--direct" { s } else { "" })
+        .map(|s| if s != "direct" { s } else { "" })
         .unwrap_or("");
 
     if input_port.is_empty() {
@@ -202,13 +217,13 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
                     // process_data(data)?;
                 }
                 ThreadMsg::Done => {
-                    std_output.push_str(&"\nThread Done\n");
+                    std_output.push_str("\nThread Done\n");
                 }
                 ThreadMsg::Started => {
-                    std_output.push_str(&"\nThread Started\n");
+                    std_output.push_str("\nThread Started\n");
                 }
                 ThreadMsg::Exiting => {
-                    std_output.push_str(&"\nThread Exiting\n");
+                    std_output.push_str("\nThread Exiting\n");
                     break;
                 }
             }
@@ -225,7 +240,7 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
         }
 
         // Output buffer
-        stdout.write(std_output.as_bytes())?;
+        stdout.write_all(std_output.as_bytes())?;
         std_output.clear();
 
         // Format status msg
@@ -305,7 +320,7 @@ fn spawn_serial_thread(
                         main_tx
                             .send(ThreadMsg::Print(format!(
                                 "{}",
-                                String::from_utf8_lossy(&skipped_data)
+                                String::from_utf8_lossy(skipped_data)
                             )))
                             .unwrap();
                     }

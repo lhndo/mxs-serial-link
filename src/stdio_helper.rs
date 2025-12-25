@@ -115,7 +115,7 @@ pub fn stdin_read_raw(
 ) -> Result<(), io::Error> {
     //
     thread_local! {
-        static SCROLL_POS: Cell<usize> = Cell::new(0);
+        static SCROLL_POS: Cell<usize> = const { Cell::new(0)};
     }
 
     while event::poll(Duration::from_millis(0))? {
@@ -189,7 +189,7 @@ pub fn print_status_bar(status_message: &str) {
     stdout.queue(cursor::MoveTo(0, rows)); // Move to bottom
     stdout.queue(terminal::Clear(terminal::ClearType::CurrentLine)); // Clear
 
-    stdout.write(status_message.as_bytes()).ok(); // Print status bar
+    stdout.write_all(status_message.as_bytes()); // Print status bar
 
     stdout.queue(cursor::MoveUp(TERM_PAD)); // Move up to scroll region
     stdout.execute(cursor::RestorePosition);
@@ -214,7 +214,7 @@ pub fn stdout_init() {
     stdout.execute(cursor::MoveToRow(rows - TERM_PAD - 1)); // Move to upper region
 }
 
-/// De-init Terminal
+// De-init Terminal
 pub fn stdout_de_init() {
     let mut stdout = std::io::stdout();
     let (_cols, rows) = terminal::size().unwrap();
