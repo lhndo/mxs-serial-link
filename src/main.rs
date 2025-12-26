@@ -1,6 +1,9 @@
+mod data;
 mod mxs_decoder;
 mod mxs_shared;
 mod stdio_helper;
+
+use data::*;
 
 use std::env;
 use std::io::Read;
@@ -46,6 +49,8 @@ fn main() {
         print!(
             r#" 
   MXS Serial Link - Serial Communication Program for Embedded Applications
+
+    Usage: mxs [options]
 
         [port]   - port name. Defaults to largest port 
         direct   - direct mode. Skips MXP packet filtering 
@@ -214,7 +219,7 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
                     continue;
                 }
                 ThreadMsg::Data(data) => {
-                    // process_data(data)?;
+                    process_data(data)?;
                 }
                 ThreadMsg::Done => {
                     std_output.push_str("\nThread Done\n");
@@ -308,7 +313,6 @@ fn spawn_serial_thread(
                         buffer.clear();
                         continue 'serial_rw;
                     }
-
                     let MxsFilterResult {
                         skipped_data,
                         trim_index,
@@ -380,35 +384,4 @@ fn spawn_serial_thread(
         // Done
         main_tx.send(ThreadMsg::Exiting).unwrap();
     })
-}
-
-// —————————————————————————————————————————————————————————————————————————————————————————————————
-//                                              Data
-// —————————————————————————————————————————————————————————————————————————————————————————————————
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct Data(i16, i16, i16);
-
-impl Data {
-    pub fn try_from(buf: &[u8]) -> Option<Self> {
-        if buf.len() != size_of::<Self>() {
-            return None;
-        }
-
-        let data = Self(
-            i16::from_le_bytes(buf[0..2].try_into().ok()?),
-            i16::from_le_bytes(buf[2..4].try_into().ok()?),
-            i16::from_le_bytes(buf[4..6].try_into().ok()?),
-        );
-
-        Some(data)
-    }
-}
-
-// ———————————————————————————————————————— Process Data ———————————————————————————————————————————
-
-pub fn process_data(data: Data) -> AnyResult<()> {
-    // TODO: do something with data
-    println!("Thread Data: {:?}", data);
-    Ok(())
 }
