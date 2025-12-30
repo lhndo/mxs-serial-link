@@ -202,6 +202,7 @@ fn connect_to_port(port_name: &str) -> AnyResult<PortType> {
                 return Ok(port);
             }
             Err(e) if attempt == 9 => {
+                println!("\nPort Error: {}", e.to_string().red());
                 return Err(e).context("Failed after 10 attempts");
             }
             _ => {
