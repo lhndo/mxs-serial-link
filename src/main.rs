@@ -149,6 +149,7 @@ fn find_port(port_name: &str) -> AnyResult<String> {
                 return Ok(port_name.to_string());
             }
         }
+        // No port specified
         else {
             // Get highest port
             if let Some(port) = serial_port
@@ -162,6 +163,16 @@ fn find_port(port_name: &str) -> AnyResult<String> {
         print!(".");
         io::stdout().flush()?;
         sleep(Duration::from_secs(1));
+    }
+}
+
+fn generate_port_key(name: &str) -> u8 {
+    let key = "".to_string();
+    if key.is_empty() || key.ends_with(|pat: char| pat.is_numeric()) {
+        todo!()
+    }
+    else {
+        0
     }
 }
 
@@ -218,9 +229,7 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
                     eprintln!("Thread Error: {}", e);
                     continue;
                 }
-                ThreadMsg::Data(data) => {
-                    process_data(data)?;
-                }
+                ThreadMsg::Data(data) => data.process()?,
                 ThreadMsg::Done => {
                     std_output.push_str("\nThread Done\n");
                 }
@@ -337,7 +346,7 @@ fn spawn_serial_thread(
                                 MxsPacketType::Data => {
                                     let packet_data = packet.data;
 
-                                    if let Some(data) = Data::try_from(packet_data) {
+                                    if let Ok(data) = Data::try_from(packet_data) {
                                         main_tx.send(ThreadMsg::Data(data)).unwrap();
                                     }
                                     else {
