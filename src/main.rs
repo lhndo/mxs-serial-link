@@ -166,14 +166,24 @@ fn find_port(port_name: &str) -> AnyResult<String> {
     }
 }
 
-fn generate_port_key(name: &str) -> u8 {
-    let key = "".to_string();
-    if key.is_empty() || key.ends_with(|pat: char| pat.is_numeric()) {
-        todo!()
+fn generate_port_key(name: &str) -> u16 {
+    let mut key = 0_u16;
+    if !name.is_empty() || name.ends_with(|pat: char| pat.is_numeric()) {
+        name.chars()
+            .rev()
+            .take_while(|c| c.is_numeric())
+            .enumerate()
+            .for_each(|f| {
+                let i = f.0;
+                let n = u16::try_from(f.1).unwrap();
+                key += if i == 0 { n } else { i as u16 * 10 * n };
+            });
     }
     else {
-        0
+        return 0;
     }
+
+    key
 }
 
 fn connect_to_port(port_name: &str) -> AnyResult<PortType> {
