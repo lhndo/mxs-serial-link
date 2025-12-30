@@ -80,15 +80,6 @@ fn main() {
         .map(|s| if s != "direct" { s } else { "" })
         .unwrap_or("");
 
-    if input_port.is_empty() {
-        println!("\nPort not provided. Connecting to largest port number.");
-    }
-    else {
-        println!("\nInput Port");
-        println!("==============");
-        println!("{input_port}");
-    }
-
     // ———————————————————————————————————————— Main Loop ——————————————————————————————————————————
 
     'main: loop {
@@ -96,13 +87,22 @@ fn main() {
         println!("==============");
         if let Ok(ports) = serialport::available_ports() {
             for port in &ports {
-                println!("{}", port.port_name);
+                println!("{}", port.port_name.clone().dark_blue());
             }
         }
         else {
-            println!("No Ports")
+            println!("{}", "No ports".red())
         }
         println!("______________");
+
+        if input_port.is_empty() {
+            println!("\nPort not provided. Connecting to largest port number.");
+        }
+        else {
+            println!("\nInput Port");
+            println!("==============");
+            println!("{input_port}");
+        }
 
         print!("\nSearching for port ...");
         io::stdout().flush().unwrap();
@@ -154,7 +154,7 @@ fn find_port(port_name: &str) -> AnyResult<String> {
             // Get highest port
             if let Some(port) = serial_port
                 .iter()
-                .max_by_key(|p| p.port_name.char_indices().last().unwrap_or((0, '0')).1)
+                .max_by_key(|p| generate_key_from_suffix(&p.port_name))
             {
                 return Ok(port.port_name.clone());
             }
@@ -166,7 +166,7 @@ fn find_port(port_name: &str) -> AnyResult<String> {
     }
 }
 
-fn generate_port_key(name: &str) -> u16 {
+fn generate_key_from_suffix(name: &str) -> u16 {
     let mut key = 0_u16;
     if !name.is_empty() || name.ends_with(|pat: char| pat.is_numeric()) {
         name.chars()
@@ -187,7 +187,7 @@ fn generate_port_key(name: &str) -> u16 {
 }
 
 fn connect_to_port(port_name: &str) -> AnyResult<PortType> {
-    print!("Connecting to port: {port_name}");
+    print!("Connecting to port: {}", port_name.to_owned().red());
     io::stdout().flush()?;
 
     for attempt in 0..10 {
