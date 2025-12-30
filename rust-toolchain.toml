@@ -1,4 +1,4 @@
 [toolchain]
-# channel = "nightly"
-channel = "nightly"
+# channel = "nightly-x86_64-pc-windows-gnu"  # windows
+channel    = "nightly"
 components = ["rust-src", "rust-analyzer", "rustfmt", "llvm-tools", "clippy"]
