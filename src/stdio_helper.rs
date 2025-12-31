@@ -1,3 +1,69 @@
+//! Stdio Helper
+//!
+//! Sets up Terminal init and deinit
+//! Enables displaying a persistent bottom input bar
+//!
+//!
+//! #Example:
+//! ``` rust
+//!   fn main() -> io::Result<()> {
+//!   let mut stdout = std::io::stdout();
+//!   let mut serial_buffer = Vec::<&str>::new();
+//!
+//!   init_stdout();
+//!
+//!   println!("-------Start--------");
+//!   println! {"Terminal size: {:?}", terminal::size().unwrap()};
+//!   println!(">>|<<");
+//!
+//!   serial_buffer.push("Greetings\n ");
+//!   serial_buffer.push("\n\nThis is ");
+//!   serial_buffer.push("a test ");
+//!   serial_buffer.push("too see where ");
+//!   serial_buffer.push("characters are printed.\n");
+//!   serial_buffer.push("Value: ");
+//!   serial_buffer.push("23S\n1\n2\n3");
+//!   serial_buffer.push("\n4\n5\n");
+//!   serial_buffer.push("End\n\n\n");
+//!
+//!   let mut input = String::new();
+//!   let mut input_history = VecDeque::<String>::new();
+//!
+//!   for _ in 0..1111 {
+//!       // Read serial msg
+//!       for serial_msg in &serial_buffer {
+//!           thread::sleep(Duration::from_millis(300)); //! Simulating io delay
+//!
+//!           // Non Blocking stdin read
+//!           stdin_read_raw(&mut input, &mut input_history);
+//!
+//!           // Detect new line in input buffer
+//!           if input.ends_with('\n') {
+//!               print!("\n{} {}", ">>:".green(), input.clone().blue());
+//!               // Send to serial
+//!               input.clear();
+//!           }
+//!
+//!           // Format status msg
+//!           let status_bar_msg =
+//!               format_args!("{} {} {}", "COM8".red(), ">>:".green(), input.clone().blue())
+//!                   .to_string();
+//!
+//!           // Write buffer
+//!           stdout.write(serial_msg.as_bytes());
+//!
+//!           // Print output with status bar
+//!           print_status_bar(&status_bar_msg);
+//!       }
+//!   }
+//!
+//!   // End
+//!   println!("Done \n");
+//!   de_init_stdout();
+//!   Ok(())
+//! }
+//! ```
+
 #![allow(unused_must_use)]
 
 pub use std::cell::Cell;
@@ -11,63 +77,6 @@ pub use crossterm::{ExecutableCommand, QueueableCommand, cursor, terminal};
 
 #[cfg(unix)]
 use termios::{ECHO, ICANON, TCSADRAIN, Termios};
-
-// fn main() -> io::Result<()> {
-//   let mut stdout = std::io::stdout();
-//   let mut serial_buffer = Vec::<&str>::new();
-
-//   init_stdout();
-
-//   println!("-------Start--------");
-//   println! {"Terminal size: {:?}", terminal::size().unwrap()};
-//   println!(">>|<<");
-
-//   serial_buffer.push("Greetings\n ");
-//   serial_buffer.push("\n\nThis is ");
-//   serial_buffer.push("a test ");
-//   serial_buffer.push("too see where ");
-//   serial_buffer.push("characters are printed.\n");
-//   serial_buffer.push("Value: ");
-//   serial_buffer.push("23S\n1\n2\n3");
-//   serial_buffer.push("\n4\n5\n");
-//   serial_buffer.push("End\n\n\n");
-
-//   let mut input = String::new();
-//   let mut input_history = VecDeque::<String>::new();
-
-//   for _ in 0..1111 {
-//       // Read serial msg
-//       for serial_msg in &serial_buffer {
-//           thread::sleep(Duration::from_millis(300)); // Simulating io delay
-
-//           // Non Blocking stdin read
-//           stdin_read_raw(&mut input, &mut input_history);
-
-//           // Detect new line in input buffer
-//           if input.ends_with('\n') {
-//               print!("\n{} {}", ">>:".green(), input.clone().blue());
-//               // Send to serial
-//               input.clear();
-//           }
-
-//           // Format status msg
-//           let status_bar_msg =
-//               format_args!("{} {} {}", "COM8".red(), ">>:".green(), input.clone().blue())
-//                   .to_string();
-
-//           // Write buffer
-//           stdout.write(serial_msg.as_bytes());
-
-//           // Print output with status bar
-//           print_status_bar(&status_bar_msg);
-//       }
-//   }
-
-//   // End
-//   println!("Done \n");
-//   de_init_stdout();
-//   Ok(())
-// }
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 //                                             Globals
@@ -120,9 +129,6 @@ pub fn stdin_read_raw(
     thread_local! {
         static SCROLL_POS: Cell<usize> = const { Cell::new(0)};
     }
-
-    // Raw mode is needed to capture non buffered input (before <CR>)
-    // terminal::enable_raw_mode();
 
     while event::poll(Duration::from_millis(0))? {
         let event_in = event::read()?;
@@ -195,7 +201,6 @@ pub fn stdin_read_raw(
             }
         }
     }
-    // terminal::disable_raw_mode();
 
     Ok(())
 }
