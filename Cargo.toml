@@ -18,13 +18,14 @@ publish    = false
 
 
 [dependencies]
-
 anyhow     = "1.0.100"
 crossterm  = "0.29.0"
-termios    = "0.3.3"
 ctrlc      = "3.5.1"
 serialport = "4.8.1"
 
+
+[target.'cfg(target_os = "unix")'.dependencies]
+termios = "0.3.3"
 
 
 [features]

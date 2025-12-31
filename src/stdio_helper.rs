@@ -8,6 +8,8 @@ pub use std::time::Duration;
 pub use crossterm::event::{self, Event, KeyCode};
 pub use crossterm::style::Stylize;
 pub use crossterm::{ExecutableCommand, QueueableCommand, cursor, terminal};
+
+#[cfg(unix)]
 use termios::{ECHO, ICANON, TCSADRAIN, Termios};
 
 // fn main() -> io::Result<()> {
