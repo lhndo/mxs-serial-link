@@ -1,6 +1,9 @@
 #![allow(unused_must_use)]
 
 pub use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{KeyboardEnhancementFlags,
+                       PopKeyboardEnhancementFlags,
+                       PushKeyboardEnhancementFlags};
 pub use crossterm::style::Stylize;
 pub use crossterm::{ExecutableCommand, QueueableCommand, cursor, terminal};
 pub use std::cell::Cell;
@@ -119,17 +122,28 @@ pub fn stdin_read_raw(
     }
 
     // Raw mode is needed to capture non buffered input (before <CR>)
-    // terminal::enable_raw_mode();
+    terminal::enable_raw_mode();
 
     while event::poll(Duration::from_millis(0))? {
         let event_in = event::read()?;
+        println!("\n>>> Event: {:?}", event_in); // Debug key events
         if let Event::Key(key_event) = event_in {
             if key_event.kind == event::KeyEventKind::Press {
                 // CTRL
                 if key_event.modifiers == event::KeyModifiers::CONTROL {
-                    match key_event.code.as_char() {
-                        Some('c') => {
+                    match key_event.code {
+                        KeyCode::Char(c) if c == ('c') => {
                             exit_process!();
+                        }
+                        KeyCode::Char(c) if c == ('j') => {
+                            if input_history.front() != Some(input) {
+                                input_history.push_front(input.clone());
+                            }
+                            SCROLL_POS.set(0);
+                            input.push('\n');
+                        }
+                        KeyCode::Backspace => {
+                            input.pop();
                         }
                         _ => {}
                     }
@@ -181,7 +195,7 @@ pub fn stdin_read_raw(
             }
         }
     }
-    // terminal::disable_raw_mode();
+    terminal::disable_raw_mode();
 
     Ok(())
 }
@@ -203,9 +217,12 @@ pub fn print_input_bar(status_message: &str) {
 /// Init Terminal
 pub fn stdout_init() {
     ctrl_c_init!();
-
     let mut stdout = std::io::stdout();
     let (_cols, rows) = terminal::size().unwrap();
+
+    stdout.execute(PushKeyboardEnhancementFlags(
+        KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES,
+    ));
 
     stdout.queue(cursor::SavePosition);
     stdout.queue(cursor::Hide);
@@ -226,6 +243,7 @@ pub fn stdout_de_init() {
     let (_cols, rows) = terminal::size().unwrap();
 
     crossterm::terminal::disable_raw_mode();
+    stdout.execute(PopKeyboardEnhancementFlags);
 
     print!("\x1b[r"); // Reset scrollable region
     print!("\x1b[0m"); // Reset Style
