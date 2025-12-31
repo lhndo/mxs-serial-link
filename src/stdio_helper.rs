@@ -1,16 +1,14 @@
 #![allow(unused_must_use)]
 
-pub use crossterm::event::{self, Event, KeyCode};
-use crossterm::event::{KeyboardEnhancementFlags,
-                       PopKeyboardEnhancementFlags,
-                       PushKeyboardEnhancementFlags};
-pub use crossterm::style::Stylize;
-pub use crossterm::{ExecutableCommand, QueueableCommand, cursor, terminal};
 pub use std::cell::Cell;
 pub use std::collections::VecDeque;
-
 pub use std::io::{self, Write};
 pub use std::time::Duration;
+
+pub use crossterm::event::{self, Event, KeyCode};
+pub use crossterm::style::Stylize;
+pub use crossterm::{ExecutableCommand, QueueableCommand, cursor, terminal};
+use termios::{ECHO, ICANON, TCSADRAIN, Termios};
 
 // fn main() -> io::Result<()> {
 //   let mut stdout = std::io::stdout();
@@ -122,7 +120,7 @@ pub fn stdin_read_raw(
     }
 
     // Raw mode is needed to capture non buffered input (before <CR>)
-    terminal::enable_raw_mode();
+    // terminal::enable_raw_mode();
 
     while event::poll(Duration::from_millis(0))? {
         let event_in = event::read()?;
@@ -195,7 +193,7 @@ pub fn stdin_read_raw(
             }
         }
     }
-    terminal::disable_raw_mode();
+    // terminal::disable_raw_mode();
 
     Ok(())
 }
@@ -217,12 +215,30 @@ pub fn print_input_bar(status_message: &str) {
 /// Init Terminal
 pub fn stdout_init() {
     ctrl_c_init!();
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::io::AsRawFd;
+
+        // Open the standard input file descriptor
+        let fd = io::stdin().as_raw_fd();
+
+        // Get the current terminal settings
+        let mut termios = Termios::from_fd(fd).unwrap();
+
+        // Disable canonical mode (ICANON) and echo (ECHO)
+        // This is needed so we preserve the other terminal modes, but get non buffered input
+        // events
+        termios.c_lflag &= !(ICANON | ECHO);
+        termios.c_cc[termios::VMIN] = 1; // Minimum number of characters to read
+        termios.c_cc[termios::VTIME] = 0; // Timeout in deciseconds (0 means no timeout)
+
+        // Apply
+        termios::tcsetattr(fd, TCSADRAIN, &termios);
+    }
+
     let mut stdout = std::io::stdout();
     let (_cols, rows) = terminal::size().unwrap();
-
-    stdout.execute(PushKeyboardEnhancementFlags(
-        KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES,
-    ));
 
     stdout.queue(cursor::SavePosition);
     stdout.queue(cursor::Hide);
@@ -233,7 +249,6 @@ pub fn stdout_init() {
     print!("\x1b[{};{}r", 0, rows - TERM_PAD); // Set scrollable region
 
     stdout.queue(cursor::RestorePosition);
-    stdout.queue(cursor::Show);
     stdout.execute(cursor::MoveToRow(rows - TERM_PAD - 1)); // Move to upper region
 }
 
@@ -242,8 +257,7 @@ pub fn stdout_de_init() {
     let mut stdout = std::io::stdout();
     let (_cols, rows) = terminal::size().unwrap();
 
-    crossterm::terminal::disable_raw_mode();
-    stdout.execute(PopKeyboardEnhancementFlags);
+    crossterm::terminal::disable_raw_mode(); // Takes care of termios canonical mode
 
     print!("\x1b[r"); // Reset scrollable region
     print!("\x1b[0m"); // Reset Style
