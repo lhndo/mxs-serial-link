@@ -119,7 +119,7 @@ pub fn stdin_read_raw(
     }
 
     // Raw mode is needed to capture non buffered input (before <CR>)
-    terminal::enable_raw_mode();
+    // terminal::enable_raw_mode();
 
     while event::poll(Duration::from_millis(0))? {
         let event_in = event::read()?;
@@ -181,7 +181,7 @@ pub fn stdin_read_raw(
             }
         }
     }
-    terminal::disable_raw_mode();
+    // terminal::disable_raw_mode();
 
     Ok(())
 }
