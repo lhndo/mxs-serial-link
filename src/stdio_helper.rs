@@ -75,7 +75,7 @@ pub use crossterm::event::{self, Event, KeyCode};
 pub use crossterm::style::Stylize;
 pub use crossterm::{ExecutableCommand, QueueableCommand, cursor, terminal};
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 use termios::{ECHO, ICANON, TCSADRAIN, Termios};
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————
@@ -223,7 +223,7 @@ pub fn print_input_bar(status_message: &str) {
 pub fn stdout_init() {
     ctrl_c_init!();
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     {
         use std::os::unix::io::AsRawFd;
 
