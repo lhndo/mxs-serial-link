@@ -118,16 +118,19 @@ pub fn stdin_read_raw(
         static SCROLL_POS: Cell<usize> = const { Cell::new(0)};
     }
 
+    // Raw mode is needed to capture non buffered input (before <CR>)
+    terminal::enable_raw_mode();
+
     while event::poll(Duration::from_millis(0))? {
         let event_in = event::read()?;
-
         if let Event::Key(key_event) = event_in {
             if key_event.kind == event::KeyEventKind::Press {
                 // CTRL
                 if key_event.modifiers == event::KeyModifiers::CONTROL {
                     match key_event.code.as_char() {
-                        Some('c') => {}
-
+                        Some('c') => {
+                            exit_process!();
+                        }
                         _ => {}
                     }
                 }
@@ -178,10 +181,12 @@ pub fn stdin_read_raw(
             }
         }
     }
+    terminal::disable_raw_mode();
+
     Ok(())
 }
 
-pub fn print_status_bar(status_message: &str) {
+pub fn print_input_bar(status_message: &str) {
     let mut stdout = std::io::stdout();
     let (_cols, rows) = terminal::size().unwrap(); // Get current term size
 
@@ -199,11 +204,13 @@ pub fn print_status_bar(status_message: &str) {
 pub fn stdout_init() {
     ctrl_c_init!();
 
+    // terminal::enable_raw_mode();
+
     let mut stdout = std::io::stdout();
     let (_cols, rows) = terminal::size().unwrap();
 
     stdout.queue(cursor::SavePosition);
-    stdout.queue(cursor::Hide);
+    // stdout.queue(cursor::Hide);
 
     print!("\x1b[0m"); // Reset Style
     print!("{}", "\n".repeat(TERM_PAD as usize + 1)); // PAD previous output
@@ -211,6 +218,7 @@ pub fn stdout_init() {
     print!("\x1b[{};{}r", 0, rows - TERM_PAD); // Set scrollable region
 
     stdout.queue(cursor::RestorePosition);
+    stdout.queue(cursor::Show);
     stdout.execute(cursor::MoveToRow(rows - TERM_PAD - 1)); // Move to upper region
 }
 

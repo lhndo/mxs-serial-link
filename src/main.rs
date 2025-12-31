@@ -190,7 +190,9 @@ fn connect_to_port(port_name: &str) -> AnyResult<PortType> {
     print!("Connecting to port: {}", port_name.to_owned().red());
     io::stdout().flush()?;
 
-    for attempt in 0..10 {
+    const ATTEMPTS: u8 = 5;
+
+    for attempt in 0..=ATTEMPTS {
         match serialport::new(port_name, 115_200)
             .dtr_on_open(true)
             .timeout(TIMEOUT)
@@ -201,16 +203,14 @@ fn connect_to_port(port_name: &str) -> AnyResult<PortType> {
                 println!("==============\n");
                 return Ok(port);
             }
-            Err(e) if attempt == 9 => {
-                println!("\nPort Error: {}", e.to_string().red());
-                return Err(e).context("Failed after 10 attempts");
+            Err(e) if attempt == ATTEMPTS => {
+                return Err(e).context("Failed after 5 attempts");
             }
-            _ => {
-                print!(".");
-                io::stdout().flush()?;
-                sleep(Duration::from_millis(500));
+            Err(e) => {
+                println!("Port Error: {}", e.to_string().red());
             }
         }
+        sleep(Duration::from_millis(500));
     }
     unreachable!()
 }
@@ -253,6 +253,9 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
                 }
             }
         }
+        // Output buffer
+        stdout.write_all(std_output.as_bytes())?;
+        std_output.clear();
 
         // Read stdin raw - non-blocking
         stdin_read_raw(&mut std_input, &mut std_input_history)?;
@@ -264,10 +267,6 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
             std_input.clear();
         }
 
-        // Output buffer
-        stdout.write_all(std_output.as_bytes())?;
-        std_output.clear();
-
         // Format status msg
         let status_bar_msg = format_args!(
             "{} {} {}",
@@ -277,7 +276,7 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
         )
         .to_string();
 
-        print_status_bar(&status_bar_msg);
+        print_input_bar(&status_bar_msg);
 
         // Avoiding a tight loop
         thread::sleep(Duration::from_millis(10));
