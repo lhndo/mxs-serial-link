@@ -204,13 +204,11 @@ pub fn print_input_bar(status_message: &str) {
 pub fn stdout_init() {
     ctrl_c_init!();
 
-    // terminal::enable_raw_mode();
-
     let mut stdout = std::io::stdout();
     let (_cols, rows) = terminal::size().unwrap();
 
     stdout.queue(cursor::SavePosition);
-    // stdout.queue(cursor::Hide);
+    stdout.queue(cursor::Hide);
 
     print!("\x1b[0m"); // Reset Style
     print!("{}", "\n".repeat(TERM_PAD as usize + 1)); // PAD previous output
