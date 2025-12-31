@@ -25,6 +25,7 @@ const READ_BUFFER_SIZE: usize = 2000;
 
 /// Direct mode skips MXS packet filtering
 static DIRECT_MODE: OnceLock<bool> = OnceLock::new();
+static PORT: OnceLock<String> = OnceLock::new();
 
 #[cfg(unix)]
 type PortType = serialport::TTYPort;
@@ -75,7 +76,7 @@ fn main() {
     DIRECT_MODE.set(direct).ok();
 
     // First argument should be the port name
-    let input_port = args
+    let mut input_port = args
         .get(1)
         .map(|s| if s != "direct" { s } else { "" })
         .unwrap_or("");
@@ -95,13 +96,20 @@ fn main() {
         }
         println!("______________");
 
-        if input_port.is_empty() {
+        if input_port.is_empty() && PORT.get().is_none() {
             println!("\nPort not provided. Connecting to largest port number.");
         }
         else {
+            if PORT.get().is_none() {
+                PORT.set(input_port.to_string()).unwrap();
+            }
+            else {
+                input_port = PORT.get().unwrap();
+            }
+
             println!("\nInput Port");
             println!("==============");
-            println!("{input_port}");
+            println!("{}", input_port.to_string().red());
         }
 
         print!("\nSearching for port ...");
