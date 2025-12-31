@@ -126,7 +126,7 @@ pub fn stdin_read_raw(
 
     while event::poll(Duration::from_millis(0))? {
         let event_in = event::read()?;
-        println!("\n>>> Event: {:?}", event_in); // Debug key events
+        // println!("\n>>> Event: {:?}", event_in); // Debug key events
         if let Event::Key(key_event) = event_in {
             if key_event.kind == event::KeyEventKind::Press {
                 // CTRL
