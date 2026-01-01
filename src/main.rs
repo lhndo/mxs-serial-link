@@ -73,7 +73,7 @@ fn main() {
         false
     };
 
-    DIRECT_MODE.set(direct).ok();
+    DIRECT_MODE.set(direct).unwrap();
 
     // First argument should be the port name
     let mut input_port = args
@@ -100,12 +100,7 @@ fn main() {
             println!("\nPort not provided. Connecting to largest port number.");
         }
         else {
-            if PORT.get().is_none() {
-                PORT.set(input_port.to_string()).unwrap();
-            }
-            else {
-                input_port = PORT.get().unwrap();
-            }
+            input_port = PORT.get_or_init(|| input_port.to_string());
 
             println!("\nInput Port");
             println!("==============");
@@ -195,7 +190,7 @@ fn generate_key_from_suffix(name: &str) -> u16 {
 }
 
 fn connect_to_port(port_name: &str) -> AnyResult<PortType> {
-    print!("Connecting to port: {}", port_name.to_owned().red());
+    println!("Connecting to port: {}", port_name.to_owned().red());
     io::stdout().flush()?;
 
     const ATTEMPTS: u8 = 5;
