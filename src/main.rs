@@ -26,7 +26,7 @@ const READ_BUFFER_SIZE: usize = 2000;
 /// Direct mode skips MXS packet filtering
 static DIRECT_MODE: OnceLock<bool> = OnceLock::new();
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 type PortType = serialport::TTYPort;
 #[cfg(windows)]
 type PortType = serialport::COMPort;
@@ -50,7 +50,9 @@ fn main() {
             r#" 
   MXS Serial Link - Serial Communication Program for Embedded Applications
 
-    Usage: mxs [options]
+    Usage: mxs [port] [options]
+
+      Arguments:
 
         [port]   - port name. Defaults to largest port 
         direct   - direct mode. Skips MXP packet filtering 
@@ -334,6 +336,8 @@ fn spawn_serial_thread(
                         buffer.clear();
                         continue 'serial_rw;
                     }
+
+                    // Filtering Mode
                     let MxsFilterResult {
                         skipped_data,
                         trim_index,
