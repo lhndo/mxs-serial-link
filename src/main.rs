@@ -25,7 +25,6 @@ const READ_BUFFER_SIZE: usize = 2000;
 
 /// Direct mode skips MXS packet filtering
 static DIRECT_MODE: OnceLock<bool> = OnceLock::new();
-static PORT: OnceLock<String> = OnceLock::new();
 
 #[cfg(unix)]
 type PortType = serialport::TTYPort;
@@ -76,10 +75,10 @@ fn main() {
     DIRECT_MODE.set(direct).unwrap();
 
     // First argument should be the port name
-    let mut input_port = args
+    let mut input_port: String = args
         .get(1)
-        .map(|s| if s != "direct" { s } else { "" })
-        .unwrap_or("");
+        .map(|s| if s != "direct" { s.to_string() } else { String::new() })
+        .unwrap_or("".to_string());
 
     // ———————————————————————————————————————— Main Loop ——————————————————————————————————————————
 
@@ -96,21 +95,19 @@ fn main() {
         }
         println!("______________");
 
-        if input_port.is_empty() && PORT.get().is_none() {
+        if input_port.is_empty() {
             println!("\nPort not provided. Connecting to largest port number.");
         }
         else {
-            input_port = PORT.get_or_init(|| input_port.to_string());
-
             println!("\nInput Port");
             println!("==============");
-            println!("{}", input_port.to_string().red());
+            println!("{}", input_port.to_owned().red());
         }
 
         print!("\nSearching for port ...");
         io::stdout().flush().unwrap();
 
-        let port_name = match find_port(input_port) {
+        let port_name = match find_port(&input_port) {
             Ok(name) => {
                 println!();
                 name
@@ -128,6 +125,8 @@ fn main() {
                 continue;
             }
         };
+
+        input_port = serial_port.name().unwrap();
 
         if let Err(e) = handle_serial_port(serial_port) {
             eprintln!("\n\nError: {}", e);
