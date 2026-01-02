@@ -262,7 +262,7 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
         std_output.clear();
 
         // Read stdin raw - non-blocking
-        stdin_read_raw(&mut std_input, &mut std_input_history)?;
+        get_stdin_input(&mut std_input, &mut std_input_history)?;
 
         // Detect new line in input buffer
         if std_input.ends_with('\n') {

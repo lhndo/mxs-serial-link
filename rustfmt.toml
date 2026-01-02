@@ -32,7 +32,6 @@ brace_style                  = "SameLineWhere"
 group_imports                = "Preserve"
 imports_granularity          = "Module"
 
-
 use_small_heuristics           = "Default"
 fn_call_width                  = 80
 attr_fn_like_width             = 80

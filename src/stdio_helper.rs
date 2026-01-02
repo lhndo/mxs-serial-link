@@ -82,6 +82,8 @@ use termios::{ECHO, ICANON, TCSADRAIN, Termios};
 //                                             Globals
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 
+const DEBUG: bool = false;
+
 pub const TERM_PAD: u16 = 2;
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————
@@ -121,82 +123,79 @@ macro_rules! ctrl_c_init {
 //                                            Functions
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 
-pub fn stdin_read_raw(
+pub fn get_stdin_input(
     input: &mut String,
     input_history: &mut VecDeque<String>,
 ) -> Result<(), io::Error> {
     //
+    const CTRL: event::KeyModifiers = event::KeyModifiers::CONTROL;
+
     thread_local! {
         static SCROLL_POS: Cell<usize> = const { Cell::new(0)};
     }
 
     while event::poll(Duration::from_millis(0))? {
         let event_in = event::read()?;
-        // println!("\n>>> Event: {:?}", event_in); // Debug key events
+
+        if DEBUG == true {
+            println!("\n>>> Event: {:?}", event_in); // Debug key events
+        }
+
         if let Event::Key(key_event) = event_in {
+            //
             if key_event.kind == event::KeyEventKind::Press {
-                // CTRL
-                if key_event.modifiers == event::KeyModifiers::CONTROL {
-                    match key_event.code {
-                        KeyCode::Char(c) if c == ('c') => {
-                            exit_process!();
-                        }
-                        KeyCode::Char(c) if c == ('j') => {
-                            if input_history.front() != Some(input) {
-                                input_history.push_front(input.clone());
-                            }
-                            SCROLL_POS.set(0);
-                            input.push('\n');
-                        }
-                        KeyCode::Backspace => {
-                            input.pop();
-                        }
-                        _ => {}
+                match (key_event.code, key_event.modifiers) {
+                    // Ctrl-C
+                    (KeyCode::Char('c'), CTRL) => {
+                        exit_process!();
                     }
-                }
-                else {
-                    // Keys
-                    match key_event.code {
-                        KeyCode::Char(c) => input.push(c),
-                        KeyCode::Backspace => {
-                            input.pop();
+                    // Enter
+                    (KeyCode::Enter, _) | (KeyCode::Char('j'), CTRL) => {
+                        if input_history.front() != Some(input) {
+                            input_history.push_front(input.clone());
                         }
-                        KeyCode::Enter => {
-                            if input_history.front() != Some(input) {
-                                input_history.push_front(input.clone());
-                            }
-                            SCROLL_POS.set(0);
-                            input.push('\n');
-                        }
-                        KeyCode::Up => {
-                            let scroll_pos = SCROLL_POS.get();
+                        SCROLL_POS.set(0);
+                        input.push('\n');
+                    }
+                    // Backspace
+                    (KeyCode::Backspace, _) => {
+                        input.pop();
+                    }
+                    // Up
+                    (KeyCode::Up, _) => {
+                        let scroll_pos = SCROLL_POS.get();
 
-                            if let Some(item) = input_history.get(scroll_pos) {
-                                *input = item.clone();
-                                SCROLL_POS.set(scroll_pos + 1);
-                            }
+                        if let Some(item) = input_history.get(scroll_pos) {
+                            *input = item.clone();
+                            SCROLL_POS.set(scroll_pos + 1);
                         }
-                        KeyCode::Down => {
-                            let scroll_pos = SCROLL_POS.get();
+                    }
+                    // Down
+                    (KeyCode::Down, _) => {
+                        let scroll_pos = SCROLL_POS.get();
 
-                            if scroll_pos <= 1 {
-                                input.clear();
-                                SCROLL_POS.set(0);
-                            }
-                            else {
-                                if let Some(item) = input_history.get(scroll_pos - 1) {
-                                    *input = item.clone();
-                                    SCROLL_POS.set(scroll_pos - 1);
-                                }
-                            }
-                        }
-                        KeyCode::Esc => {
+                        if scroll_pos <= 1 {
                             input.clear();
                             SCROLL_POS.set(0);
                         }
-
-                        _ => {}
+                        else {
+                            if let Some(item) = input_history.get(scroll_pos - 1) {
+                                *input = item.clone();
+                                SCROLL_POS.set(scroll_pos - 1);
+                            }
+                        }
                     }
+                    // Esc
+                    (KeyCode::Esc, _) => {
+                        input.clear();
+                        SCROLL_POS.set(0);
+                    }
+                    // Character Input
+                    (KeyCode::Char(char), _) => {
+                        input.push(char);
+                    }
+                    // Any
+                    _ => {}
                 }
             }
         }
@@ -204,6 +203,8 @@ pub fn stdin_read_raw(
 
     Ok(())
 }
+
+// —————————————————————————————————————————— Input Bar ————————————————————————————————————————————
 
 pub fn print_input_bar(status_message: &str) {
     let mut stdout = std::io::stdout();
@@ -219,10 +220,13 @@ pub fn print_input_bar(status_message: &str) {
     stdout.execute(cursor::RestorePosition);
 }
 
+// ———————————————————————————————————————————— Init ———————————————————————————————————————————————
+
 /// Init Terminal
 pub fn stdout_init() {
     ctrl_c_init!();
 
+    // On Linux we disable canonical mode (instead of raw mode) to gain access to non buffered input
     #[cfg(target_os = "linux")]
     {
         use std::os::unix::io::AsRawFd;
@@ -247,12 +251,13 @@ pub fn stdout_init() {
     let mut stdout = std::io::stdout();
     let (_cols, rows) = terminal::size().unwrap();
 
-    stdout.queue(cursor::SavePosition);
     stdout.queue(cursor::Hide);
+    stdout.queue(cursor::SavePosition);
 
     print!("\x1b[0m"); // Reset Style
-    print!("{}", "\n".repeat(TERM_PAD as usize + 1)); // PAD previous output
     print!("\x1b[r"); // Reset scrollable region
+
+    print!("{}", "\n".repeat(TERM_PAD as usize + 1)); // PAD previous output
     print!("\x1b[{};{}r", 0, rows - TERM_PAD); // Set scrollable region
 
     stdout.queue(cursor::RestorePosition);
@@ -264,7 +269,7 @@ pub fn stdout_de_init() {
     let mut stdout = std::io::stdout();
     let (_cols, rows) = terminal::size().unwrap();
 
-    crossterm::terminal::disable_raw_mode(); // Takes care of termios canonical mode
+    crossterm::terminal::disable_raw_mode(); // Takes care of restoring termios canonical mode
 
     print!("\x1b[r"); // Reset scrollable region
     print!("\x1b[0m"); // Reset Style
