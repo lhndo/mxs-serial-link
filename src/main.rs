@@ -3,13 +3,12 @@ mod mxs_decoder;
 mod mxs_shared;
 mod stdio_helper;
 
-use data::*;
-
 use std::env;
 use std::io::Read;
 use std::sync::{OnceLock, mpsc};
 use std::thread::{self, JoinHandle, sleep};
 
+use data::*;
 use mxs_decoder::*;
 use serialport::SerialPort;
 use stdio_helper::*;
@@ -121,7 +120,11 @@ fn main() {
         };
 
         let serial_port = match connect_to_port(&port_name) {
-            Ok(p) => p,
+            Ok(p) => {
+                println!("\n\nConnected!");
+                println!("==============\n");
+                p
+            }
             Err(e) => {
                 eprintln!("\n{}\n", e);
                 continue;
@@ -203,8 +206,6 @@ fn connect_to_port(port_name: &str) -> AnyResult<PortType> {
             .open_native()
         {
             Ok(port) => {
-                println!("\n\nConnected!");
-                println!("==============\n");
                 return Ok(port);
             }
             Err(e) if attempt == ATTEMPTS => {

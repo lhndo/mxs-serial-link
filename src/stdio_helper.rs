@@ -257,9 +257,9 @@ pub fn stdout_init() {
     stdout.queue(cursor::SavePosition);
 
     print!("\x1b[0m"); // Reset Style
-    print!("\x1b[r"); // Reset scrollable region
 
     print!("{}", "\n".repeat(TERM_PAD as usize + 1)); // PAD previous output
+    print!("\x1b[r"); // Reset scrollable region
     print!("\x1b[{};{}r", 0, rows - TERM_PAD); // Set scrollable region
 
     stdout.queue(cursor::RestorePosition);
