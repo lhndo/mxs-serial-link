@@ -2,6 +2,7 @@
 //!
 //! Sets up Terminal init and deinit
 //! Enables displaying a persistent bottom input bar
+//! Handles key input events
 //!
 //!
 //! #Example:
@@ -10,7 +11,8 @@
 //!   let mut stdout = std::io::stdout();
 //!   let mut serial_buffer = Vec::<&str>::new();
 //!
-//!   init_stdout();
+//!   ctrl_c_init!();
+//!   terminal_init!();
 //!
 //!   println!("-------Start--------");
 //!   println! {"Terminal size: {:?}", terminal::size().unwrap()};
@@ -21,10 +23,10 @@
 //!   serial_buffer.push("a test ");
 //!   serial_buffer.push("too see where ");
 //!   serial_buffer.push("characters are printed.\n");
-//!   serial_buffer.push("Value: ");
-//!   serial_buffer.push("23S\n1\n2\n3");
+//!   serial_buffer.push("Values: ");
+//!   serial_buffer.push("23\n1\n2\n3");
 //!   serial_buffer.push("\n4\n5\n");
-//!   serial_buffer.push("End\n\n\n");
+//!   serial_buffer.push("End Stream\n\n\n");
 //!
 //!   let mut input = String::new();
 //!   let mut input_history = VecDeque::<String>::new();
@@ -35,7 +37,7 @@
 //!           thread::sleep(Duration::from_millis(300)); //! Simulating io delay
 //!
 //!           // Non Blocking stdin read
-//!           stdin_read_raw(&mut input, &mut input_history);
+//!           get_stdin_input(&mut input, &mut input_history);
 //!
 //!           // Detect new line in input buffer
 //!           if input.ends_with('\n') {
@@ -59,7 +61,7 @@
 //!
 //!   // End
 //!   println!("Done \n");
-//!   de_init_stdout();
+//!   terminal_exit!();
 //!   Ok(())
 //! }
 //! ```
@@ -91,9 +93,16 @@ pub const TERM_PAD: u16 = 2;
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 
 #[macro_export]
-macro_rules! exit_process {
+macro_rules! terminal_init {
     () => {
-        $crate::exit_process!(0);
+        stdout_init();
+    };
+}
+
+#[macro_export]
+macro_rules! terminal_exit {
+    () => {
+        $crate::terminal_exit!(0);
     };
     ($code:expr) => {{
         stdout_de_init();
@@ -103,17 +112,10 @@ macro_rules! exit_process {
 }
 
 #[macro_export]
-macro_rules! init_process {
-    () => {
-        stdout_init();
-    };
-}
-
-#[macro_export]
 macro_rules! ctrl_c_init {
     () => {
         ctrlc::set_handler(move || {
-            exit_process!();
+            terminal_exit!();
         })
         .expect("Error setting Ctrl-C handler");
     };
@@ -147,7 +149,7 @@ pub fn get_stdin_input(
                 match (key_event.code, key_event.modifiers) {
                     // Ctrl-C
                     (KeyCode::Char('c'), CTRL) => {
-                        exit_process!();
+                        terminal_exit!();
                     }
                     // Enter
                     (KeyCode::Enter, _) | (KeyCode::Char('j'), CTRL) => {

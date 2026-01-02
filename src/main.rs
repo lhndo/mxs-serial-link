@@ -38,7 +38,7 @@ type PortType = serialport::COMPort;
 fn main() {
     // ——————————————————————————————————————— Stdio Init ——————————————————————————————————————————
 
-    init_process!();
+    terminal_init!();
 
     // —————————————————————————————————————————— Args —————————————————————————————————————————————
 
@@ -59,7 +59,7 @@ fn main() {
         help     - displays this message 
            "#
         );
-        exit_process!();
+        terminal_exit!();
     }
 
     println!("\n=== Serial Link Started ===");
