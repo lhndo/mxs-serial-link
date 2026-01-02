@@ -11,7 +11,6 @@
 //!   let mut stdout = std::io::stdout();
 //!   let mut serial_buffer = Vec::<&str>::new();
 //!
-//!   ctrl_c_init!();
 //!   terminal_init!();
 //!
 //!   println!("-------Start--------");
