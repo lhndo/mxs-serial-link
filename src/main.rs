@@ -232,7 +232,6 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
     let mut stdout = std::io::stdout();
     let mut std_output = String::new();
     let mut std_input = String::new();
-    let mut std_input_history = VecDeque::<String>::new();
 
     loop {
         if let Ok(msg) = main_rx.try_recv() {
@@ -267,7 +266,7 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
         // ———————————————————————————————————————— Input ——————————————————————————————————————————
 
         // Read stdin raw - non-blocking
-        get_stdin_input(&mut std_input, &mut std_input_history)?;
+        read_stdin_input(&mut std_input)?;
 
         // Detect new line in input buffer
         if std_input.ends_with('\n') {

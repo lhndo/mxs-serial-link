@@ -67,7 +67,6 @@
 
 #![allow(unused_must_use)]
 
-pub use std::cell::Cell;
 pub use std::collections::VecDeque;
 pub use std::io::{self, Write};
 pub use std::time::Duration;
@@ -124,19 +123,19 @@ macro_rules! ctrl_c_init {
 //                                            Functions
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 
-pub fn get_stdin_input(
-    input: &mut String,
-    input_history: &mut VecDeque<String>,
-) -> Result<(), io::Error> {
+pub fn read_stdin_input(input: &mut String) -> Result<(), io::Error> {
     //
     const CTRL: event::KeyModifiers = event::KeyModifiers::CONTROL;
 
-    thread_local! {
-        static SCROLL_POS: Cell<usize> = const { Cell::new(0)};
-    }
+    static mut HISTORY: VecDeque<String> = VecDeque::<String>::new();
+    static mut SCROLL_POS: usize = 0;
 
     while event::poll(Duration::from_millis(0))? {
         let event_in = event::read()?;
+
+        // Single entry point
+        let history = unsafe { &mut *&raw mut HISTORY };
+        let scroll_pos = unsafe { &mut *&raw mut SCROLL_POS };
 
         if DEBUG == true {
             println!("\n>>> Event: {:?}", event_in); // Debug key events
@@ -152,10 +151,10 @@ pub fn get_stdin_input(
                     }
                     // Enter
                     (KeyCode::Enter, _) | (KeyCode::Char('j'), CTRL) => {
-                        if input_history.front() != Some(input) {
-                            input_history.push_front(input.clone());
+                        if history.front() != Some(input) {
+                            history.push_front(input.clone());
                         }
-                        SCROLL_POS.set(0);
+                        *scroll_pos = 0;
                         input.push('\n');
                     }
                     // Backspace
@@ -164,32 +163,28 @@ pub fn get_stdin_input(
                     }
                     // Up
                     (KeyCode::Up, _) => {
-                        let scroll_pos = SCROLL_POS.get();
-
-                        if let Some(item) = input_history.get(scroll_pos) {
+                        if let Some(item) = history.get(*scroll_pos + 1) {
                             *input = item.clone();
-                            SCROLL_POS.set(scroll_pos + 1);
+                            *scroll_pos += 1;
                         }
                     }
                     // Down
                     (KeyCode::Down, _) => {
-                        let scroll_pos = SCROLL_POS.get();
-
-                        if scroll_pos <= 1 {
+                        if *scroll_pos <= 1 {
                             input.clear();
-                            SCROLL_POS.set(0);
+                            *scroll_pos = 0;
                         }
                         else {
-                            if let Some(item) = input_history.get(scroll_pos - 1) {
+                            if let Some(item) = history.get(*scroll_pos - 1) {
                                 *input = item.clone();
-                                SCROLL_POS.set(scroll_pos - 1);
+                                *scroll_pos -= 1;
                             }
                         }
                     }
                     // Esc
                     (KeyCode::Esc, _) => {
                         input.clear();
-                        SCROLL_POS.set(0);
+                        *scroll_pos = 0;
                     }
                     // Character Input
                     (KeyCode::Char(char), _) => {
