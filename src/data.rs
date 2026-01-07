@@ -10,11 +10,10 @@ use anyhow::Result as AnyResult;
 pub struct Data(i16, i16, i16);
 
 impl Data {
-    pub fn process(&self) -> AnyResult<()> {
+    pub fn process(&self) -> AnyResult<String> {
         // TODO: do something with data
         //
-        println!("Thread Data: {:?}", &self);
-        Ok(())
+        Ok(format!("MXS Data: {:?}", &self))
     }
 }
 

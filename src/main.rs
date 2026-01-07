@@ -235,7 +235,6 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
     let mut std_input_history = VecDeque::<String>::new();
 
     loop {
-        // let msg = main_rx.recv()?;
         if let Ok(msg) = main_rx.try_recv() {
             match msg {
                 ThreadMsg::Print(s) => {
@@ -243,9 +242,13 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
                 }
                 ThreadMsg::Error(e) => {
                     eprintln!("Thread Error: {}", e);
+                    stdout.write_all(std_output.as_bytes())?;
+                    std_output.clear();
                     continue;
                 }
-                ThreadMsg::Data(data) => data.process()?,
+                ThreadMsg::Data(data) => {
+                    std_output.push_str(&data.process()?);
+                }
                 ThreadMsg::Done => {
                     std_output.push_str("\nThread Done\n");
                 }
@@ -254,23 +257,30 @@ fn handle_serial_port(serial_port: PortType) -> AnyResult<()> {
                 }
                 ThreadMsg::Exiting => {
                     std_output.push_str("\nThread Exiting\n");
+                    stdout.write_all(std_output.as_bytes())?;
+                    std_output.clear();
                     break;
                 }
             }
         }
-        // Output buffer
-        stdout.write_all(std_output.as_bytes())?;
-        std_output.clear();
+
+        // ———————————————————————————————————————— Input ——————————————————————————————————————————
 
         // Read stdin raw - non-blocking
         get_stdin_input(&mut std_input, &mut std_input_history)?;
 
         // Detect new line in input buffer
         if std_input.ends_with('\n') {
-            std_output.push_str(&format!("\n{} {}", ">>:".green(), std_input.clone().blue()));
+            std_output.push_str(&format!("\n{} {}", ">>:".green(), std_input.clone().blue())); // Print the input line
             thread_tx.send(std_input.clone())?; // Sending to serial thread
             std_input.clear();
         }
+
+        // Write all
+        stdout.write_all(std_output.as_bytes())?;
+        std_output.clear();
+
+        // —————————————————————————————————————— Input Bar ————————————————————————————————————————
 
         // Format status msg
         let status_bar_msg = format_args!(
