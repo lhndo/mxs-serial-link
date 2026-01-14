@@ -151,7 +151,7 @@ pub fn read_stdin_input(input: &mut String) -> Result<(), io::Error> {
                     }
                     // Enter
                     (KeyCode::Enter, _) | (KeyCode::Char('j'), CTRL) => {
-                        if history.front() != Some(input) {
+                        if history.front() != Some(input) && !input.is_empty() {
                             history.push_front(input.clone());
                         }
                         *scroll_pos = 0;
