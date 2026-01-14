@@ -159,7 +159,7 @@ fn find_port(port_name: &str) -> AnyResult<String> {
         // No port specified
         else {
             // Auto find the port with the longest name or largest number
-            if let Some(value) = auto_find_port(serial_port) {
+            if let Some(value) = auto_select_port(serial_port) {
                 return Ok(value);
             }
         }
@@ -171,7 +171,7 @@ fn find_port(port_name: &str) -> AnyResult<String> {
 }
 
 /// Find the port with the longest name or largest number
-fn auto_find_port(serial_port: Vec<serialport::SerialPortInfo>) -> Option<String> {
+fn auto_select_port(serial_port: Vec<serialport::SerialPortInfo>) -> Option<String> {
     if serial_port.is_empty() {
         return None;
     }
@@ -205,7 +205,7 @@ fn generate_key_from_suffix(name: &str) -> u16 {
             .enumerate()
             .for_each(|f| {
                 let i = f.0;
-                let n = u16::try_from(f.1).unwrap();
+                let n = f.1.to_digit(10).unwrap() as u16;
                 key += if i == 0 { n } else { i as u16 * 10 * n };
             });
     }
