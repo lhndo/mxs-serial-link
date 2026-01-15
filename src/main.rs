@@ -37,7 +37,7 @@ type PortType = serialport::COMPort;
 fn main() {
     // ——————————————————————————————————————— Stdio Init ——————————————————————————————————————————
 
-    terminal_init!();
+    terminal_start!();
 
     // —————————————————————————————————————————— Args —————————————————————————————————————————————
 
@@ -390,6 +390,7 @@ fn spawn_serial_thread(
                 Ok(n) => {
                     buffer.extend_from_slice(&raw_read[..n]);
 
+                    // Direct Mode
                     if *DIRECT_MODE.get().unwrap() {
                         main_thread_tx
                             .send(ThreadMsg::Print(format!("{}", String::from_utf8_lossy(&buffer))))
@@ -398,7 +399,7 @@ fn spawn_serial_thread(
                         continue 'serial_rw;
                     }
 
-                    // Filtering Mode
+                    // MXS Packet Filtering Mode
                     let MxsFilterResult {
                         skipped_data,
                         trim_index,
@@ -441,6 +442,7 @@ fn spawn_serial_thread(
                                         .unwrap();
                                 }
 
+                                // Other Notification Packets
                                 p => {
                                     main_thread_tx
                                         .send(ThreadMsg::Print(format!("Received: {:?}\n", p)))

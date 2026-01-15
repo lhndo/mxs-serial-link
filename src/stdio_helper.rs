@@ -91,7 +91,7 @@ pub const TERM_PAD: u16 = 2;
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 
 #[macro_export]
-macro_rules! terminal_init {
+macro_rules! terminal_start {
     () => {
         stdout_init();
     };
@@ -163,7 +163,7 @@ pub fn read_stdin_input(input: &mut String) -> Result<(), io::Error> {
                     }
                     // Up
                     (KeyCode::Up, _) => {
-                        if let Some(item) = history.get(*scroll_pos + 1) {
+                        if let Some(item) = history.get(*scroll_pos) {
                             *input = item.clone();
                             *scroll_pos += 1;
                         }
@@ -175,7 +175,7 @@ pub fn read_stdin_input(input: &mut String) -> Result<(), io::Error> {
                             *scroll_pos = 0;
                         }
                         else {
-                            if let Some(item) = history.get(*scroll_pos - 1) {
+                            if let Some(item) = history.get(*scroll_pos - 2) {
                                 *input = item.clone();
                                 *scroll_pos -= 1;
                             }
