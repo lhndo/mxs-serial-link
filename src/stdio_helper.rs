@@ -1,71 +1,11 @@
 //! Stdio Helper
 //!
-//! Sets up Terminal init and deinit
-//! Enables displaying a persistent bottom input bar
+//! Handles Terminal init and de-init
 //! Handles key input events
-//!
-//!
-//! #Example:
-//! ``` rust
-//!   fn main() -> io::Result<()> {
-//!   let mut stdout = std::io::stdout();
-//!   let mut serial_buffer = Vec::<&str>::new();
-//!
-//!   terminal_init!();
-//!
-//!   println!("-------Start--------");
-//!   println! {"Terminal size: {:?}", terminal::size().unwrap()};
-//!   println!(">>|<<");
-//!
-//!   serial_buffer.push("Greetings\n ");
-//!   serial_buffer.push("\n\nThis is ");
-//!   serial_buffer.push("a test ");
-//!   serial_buffer.push("too see where ");
-//!   serial_buffer.push("characters are printed.\n");
-//!   serial_buffer.push("Values: ");
-//!   serial_buffer.push("23\n1\n2\n3");
-//!   serial_buffer.push("\n4\n5\n");
-//!   serial_buffer.push("End Stream\n\n\n");
-//!
-//!   let mut input = String::new();
-//!   let mut input_history = VecDeque::<String>::new();
-//!
-//!   for _ in 0..1111 {
-//!       // Read serial msg
-//!       for serial_msg in &serial_buffer {
-//!           thread::sleep(Duration::from_millis(300)); //! Simulating io delay
-//!
-//!           // Non Blocking stdin read
-//!           get_stdin_input(&mut input, &mut input_history);
-//!
-//!           // Detect new line in input buffer
-//!           if input.ends_with('\n') {
-//!               print!("\n{} {}", ">>:".green(), input.clone().blue());
-//!               // Send to serial
-//!               input.clear();
-//!           }
-//!
-//!           // Format status msg
-//!           let status_bar_msg =
-//!               format_args!("{} {} {}", "COM8".red(), ">>:".green(), input.clone().blue())
-//!                   .to_string();
-//!
-//!           // Write buffer
-//!           stdout.write(serial_msg.as_bytes());
-//!
-//!           // Print output with status bar
-//!           print_status_bar(&status_bar_msg);
-//!       }
-//!   }
-//!
-//!   // End
-//!   println!("Done \n");
-//!   terminal_exit!();
-//!   Ok(())
-//! }
-//! ```
+//! Enables displaying a persistent bottom input bar
 
 #![allow(unused_must_use)]
+#![allow(clippy::deref_addrof)]
 
 pub use std::collections::VecDeque;
 pub use std::io::{self, Write};
@@ -134,10 +74,10 @@ pub fn read_stdin_input(input: &mut String) -> Result<(), io::Error> {
         let event_in = event::read()?;
 
         // Single entry point
-        let history = unsafe { &mut *&raw mut HISTORY };
+        let history = unsafe { &mut *&raw mut HISTORY }; // stops compiler yapping about mut static
         let scroll_pos = unsafe { &mut *&raw mut SCROLL_POS };
 
-        if DEBUG == true {
+        if DEBUG {
             println!("\n>>> Event: {:?}", event_in); // Debug key events
         }
 

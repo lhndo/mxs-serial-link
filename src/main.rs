@@ -145,8 +145,6 @@ fn main() {
 //                                            Functions
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 
-// ———————————————————————————————————————————— Ports ——————————————————————————————————————————————
-
 fn find_port(port_name: &str) -> AnyResult<String> {
     loop {
         let serial_port = serialport::available_ports().context("Failed to list ports")?;
@@ -178,6 +176,7 @@ fn auto_select_port(serial_port: Vec<serialport::SerialPortInfo>) -> Option<Stri
 
     let mut sorted_ports = serial_port.clone();
     sorted_ports.sort_by_key(|k| k.port_name.len());
+
     let name_len = sorted_ports[0].port_name.len();
 
     if let Some(port) = serial_port
