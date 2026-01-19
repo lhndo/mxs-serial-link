@@ -101,6 +101,11 @@ pub fn read_stdin_input(input: &mut String) -> Result<(), io::Error> {
                     (KeyCode::Backspace, _) => {
                         input.pop();
                     }
+                    // Ctrl + u - Clear
+                    (KeyCode::Char('u'), CTRL) => {
+                        input.clear();
+                        *scroll_pos = 0;
+                    }
                     // Up
                     (KeyCode::Up, _) => {
                         if let Some(item) = history.get(*scroll_pos) {

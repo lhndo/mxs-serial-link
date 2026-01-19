@@ -25,7 +25,7 @@ fn main() -> io::Result<()> {
     serial_buffer.push("too see where ");
     serial_buffer.push("characters are printed ");
     serial_buffer.push("as they are received from a simulated source\n");
-    serial_buffer.push("Values: ");
+    serial_buffer.push("Values:\n");
     serial_buffer.push("1\n2\n3");
     serial_buffer.push("\n4\n5\n");
     serial_buffer.push("----- End Stream -----\n\n");
