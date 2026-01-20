@@ -1,8 +1,9 @@
 //! Stdio Helper
 //!
 //! Handles Terminal init and de-init
-//! Handles key input events
-//! Enables displaying a persistent bottom input bar
+//! Handles key input
+//! Handles Ctrl+C hook
+//! Enables displaying a persistent bottom input bar with history
 
 #![allow(unused_must_use)]
 #![allow(clippy::deref_addrof)]
@@ -24,7 +25,7 @@ use termios::{ECHO, ICANON, TCSADRAIN, Termios};
 
 const DEBUG: bool = false;
 
-pub const TERM_PAD: u16 = 2;
+pub const TERM_PADDED_LINES: u16 = 2;
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 //                                             Macros
@@ -44,7 +45,12 @@ macro_rules! terminal_exit {
     };
     ($code:expr) => {{
         stdout_de_init();
-        println!("\nExiting...\n");
+        if $code != 0 {
+            println!("Exiting with code: {}\n", $code);
+        }
+        else {
+            println!("Exiting...\n");
+        }
         std::process::exit($code);
     }};
 }
@@ -73,8 +79,8 @@ pub fn read_stdin_input(input: &mut String) -> Result<(), io::Error> {
     while event::poll(Duration::from_millis(0))? {
         let event_in = event::read()?;
 
-        // Single entry point
-        let history = unsafe { &mut *&raw mut HISTORY }; // stops compiler yapping about mut static
+        // Local scope single entry point
+        let history = unsafe { &mut *&raw mut HISTORY }; // Stops compiler yapping about mut static
         let scroll_pos = unsafe { &mut *&raw mut SCROLL_POS };
 
         if DEBUG {
@@ -157,7 +163,7 @@ pub fn print_input_bar(status_message: &str) {
 
     stdout.write_all(status_message.as_bytes()); // Print status bar
 
-    stdout.queue(cursor::MoveUp(TERM_PAD)); // Move up to scroll region
+    stdout.queue(cursor::MoveUp(TERM_PADDED_LINES)); // Move up to scroll region
     stdout.execute(cursor::RestorePosition);
 }
 
@@ -196,14 +202,15 @@ pub fn stdout_init() {
     stdout.queue(cursor::SavePosition);
 
     print!("\x1b[0m"); // Reset Style
-
-    print!("{}", "\n".repeat(TERM_PAD as usize + 1)); // PAD previous output
+    print!("{}", "\n".repeat(TERM_PADDED_LINES as usize + 1)); // PAD previous output
     print!("\x1b[r"); // Reset scrollable region
-    print!("\x1b[{};{}r", 0, rows - TERM_PAD); // Set scrollable region
+    print!("\x1b[{};{}r", 0, rows - TERM_PADDED_LINES); // Set scrollable region
 
     stdout.queue(cursor::RestorePosition);
-    stdout.execute(cursor::MoveToRow(rows - TERM_PAD - 1)); // Move to upper region
+    stdout.execute(cursor::MoveToRow(rows - TERM_PADDED_LINES - 1)); // Move to upper region
 }
+
+// ——————————————————————————————————————————— De-Init —————————————————————————————————————————————
 
 // De-init Terminal
 pub fn stdout_de_init() {
