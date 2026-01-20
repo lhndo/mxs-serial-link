@@ -38,7 +38,7 @@ fn main() -> io::Result<()> {
 
     loop {
         // Check for input (non-blocking)
-        read_stdin_input(&mut input).ok();
+        read_raw_stdin_input(&mut input).ok();
 
         // Detect new line in input buffer
         if input.ends_with('\n') {

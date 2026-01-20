@@ -69,7 +69,23 @@ macro_rules! ctrl_c_init {
 //                                            Functions
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 
-pub fn read_stdin_input(input: &mut String) -> Result<(), io::Error> {
+/// Handling raw STD input with history
+/// Example:
+/// ```
+/// let mut std_input = String::new();
+/// ...
+///
+/// // In a loop:
+/// read_stdin_input(&mut std_input)?;
+///
+/// // Detect new line in input buffer
+/// if std_input.ends_with('\n') {
+///     println!("{}", std_input) // Print the input line
+///     std_input.clear();
+/// }
+/// ```
+///  
+pub fn read_raw_stdin_input(input: &mut String) -> Result<(), io::Error> {
     //
     const CTRL: event::KeyModifiers = event::KeyModifiers::CONTROL;
 
