@@ -207,12 +207,11 @@ fn generate_key_from_suffix(name: &str) -> u16 {
                 let n = f.1.to_digit(10).unwrap() as u16;
                 key += if i == 0 { n } else { i as u16 * 10 * n };
             });
+        return key;
     }
     else {
         return 0;
     }
-
-    key
 }
 
 fn connect_to_port(port_name: &str) -> AnyResult<PortType> {

@@ -3,7 +3,9 @@ RUST_LOG = "debug"
 
 
 [alias]
-# base
+# debug
+b = "build"
+r = "run"
 s = "size"
 
 # release
@@ -22,8 +24,8 @@ rrd = "rr --no-default-features --features default-dev"
 srd = "sr --no-default-features --features default-dev"
 
 
-# exaples
-ex1 = "run --example 01"
+# examples
+ex1 = "run --example 01_test_terminal_input"
 ex2 = "run --example 02"
 ex3 = "run --example 03"
 ex4 = "run --example 04"

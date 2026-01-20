@@ -3,5 +3,6 @@
   // "rust-analyzer.cargo.features": ["default-dev"],
   "editor.formatOnSave": true,
   "rust-analyzer.check.allTargets": true,
-  "rust-analyzer.linkedProjects": ["Cargo.toml"]
+  "rust-analyzer.linkedProjects": ["Cargo.toml"],
+  "rust-analyzer.diagnostics.disabled": ["needless_return"]
 }
