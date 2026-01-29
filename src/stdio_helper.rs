@@ -23,8 +23,7 @@ use termios::{ECHO, ICANON, TCSADRAIN, Termios};
 //                                             Globals
 // —————————————————————————————————————————————————————————————————————————————————————————————————
 
-const DEBUG: bool = false;
-
+pub const DEBUG: bool = false;
 pub const TERM_PADDED_LINES: u16 = 2;
 
 // —————————————————————————————————————————————————————————————————————————————————————————————————
@@ -169,7 +168,20 @@ pub fn read_raw_stdin_input(input: &mut String) -> Result<(), io::Error> {
 
 // —————————————————————————————————————————— Input Bar ————————————————————————————————————————————
 
-pub fn print_input_bar(status_message: &str) {
+/// Example:
+/// ```
+/// let input_prefix = "INPUT";
+/// let mut input = String::new();
+///
+/// input = "Test Message".into();
+///
+/// let status_bar_msg =
+///     format_args!("{} {} {}", input_prefix.red(), ">>:".green(), input.clone().blue())
+///         .to_string();
+/// print_input_bar(&status_bar_msg);
+/// ```
+///   
+pub fn print_input_bar(status_bar_msg: &str) {
     let mut stdout = std::io::stdout();
     let (_cols, rows) = terminal::size().unwrap(); // Get current term size
 
@@ -177,7 +189,7 @@ pub fn print_input_bar(status_message: &str) {
     stdout.queue(cursor::MoveTo(0, rows)); // Move to bottom
     stdout.queue(terminal::Clear(terminal::ClearType::CurrentLine)); // Clear
 
-    stdout.write_all(status_message.as_bytes()); // Print status bar
+    stdout.write_all(status_bar_msg.as_bytes()); // Print status bar
 
     stdout.queue(cursor::MoveUp(TERM_PADDED_LINES)); // Move up to scroll region
     stdout.execute(cursor::RestorePosition);

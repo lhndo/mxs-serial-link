@@ -30,6 +30,7 @@ fn main() -> io::Result<()> {
     serial_buffer.push("\n4\n5\n");
     serial_buffer.push("----- End Stream -----\n\n");
 
+    let input_prefix = "INPUT";
     let mut input = String::new();
 
     let mut last_print = Instant::now();
@@ -60,7 +61,7 @@ fn main() -> io::Result<()> {
 
         // Update status bar with current input
         let status_bar_msg =
-            format_args!("{} {} {}", "INPUT".red(), ">>:".green(), input.clone().blue())
+            format_args!("{} {} {}", input_prefix.red(), ">>:".green(), input.clone().blue())
                 .to_string();
         print_input_bar(&status_bar_msg);
 

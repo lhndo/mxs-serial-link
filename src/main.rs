@@ -59,29 +59,33 @@ fn main() {
         terminal_exit!();
     }
 
-    println!("\n=== Serial Link Started ===");
-
-    // Direct mode skips MXS packet filtering
-    let direct = if args.contains(&"direct".to_string()) {
-        println!("        Direct mode \n");
-        true
-    }
-    else {
-        println!("     with MXS Protocol \n");
-        false
-    };
-
-    DIRECT_MODE.set(direct).unwrap();
-
     // First argument should be the port name
     let mut input_port_name: String = args
         .get(1)
         .map(|s| if s != "direct" { s.to_string() } else { String::new() })
         .unwrap_or("".to_string());
 
+    let direct = args.contains(&"direct".to_string());
+    DIRECT_MODE.set(direct).unwrap();
+
     // ———————————————————————————————————————— Main Loop ——————————————————————————————————————————
 
+    println!("\n=== Serial Link Started ===");
+
+    // Direct mode skips MXS packet filtering
+    println!(
+        "{}",
+        if direct {
+            "        Direct mode \n"
+        }
+        else {
+            "     with MXS Protocol \n"
+        }
+    );
+
     'main: loop {
+        // —————————————————————————————————————— Find Port ————————————————————————————————————————
+
         println!("\nAvailable Ports");
         println!("==============");
         if let Ok(ports) = serialport::available_ports() {
@@ -130,6 +134,8 @@ fn main() {
         };
 
         input_port_name = serial_port.name().unwrap();
+
+        // —————————————————————————————————— Handle Connection ————————————————————————————————————
 
         if let Err(e) = handle_connection(serial_port) {
             eprintln!("\n\nError: {}", e);
