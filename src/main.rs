@@ -76,7 +76,7 @@ fn main() {
     DIRECT_MODE.set(direct).unwrap();
 
     // First argument should be the port name
-    let mut input_port: String = args
+    let mut input_port_name: String = args
         .get(1)
         .map(|s| if s != "direct" { s.to_string() } else { String::new() })
         .unwrap_or("".to_string());
@@ -96,26 +96,26 @@ fn main() {
         }
         println!("______________");
 
-        if input_port.is_empty() {
+        if input_port_name.is_empty() {
             println!("\nPort not provided. Connecting to largest port number.");
         }
         else {
             println!("\nInput Port");
             println!("==============");
-            println!("{}", input_port.to_owned().red());
+            println!("{}", input_port_name.to_owned().red());
         }
 
         print!("\nSearching for port ...");
         io::stdout().flush().unwrap();
 
-        let port_name = match find_port(&input_port) {
+        let port_name = match find_port(&input_port_name) {
             Ok(name) => {
                 println!();
                 name
             }
             Err(e) => {
                 eprintln!("\n{}", e);
-                continue;
+                continue 'main;
             }
         };
 
@@ -127,121 +127,21 @@ fn main() {
             }
             Err(e) => {
                 eprintln!("\n{}\n", e);
-                continue;
+                continue 'main;
             }
         };
 
-        input_port = serial_port.name().unwrap();
+        input_port_name = serial_port.name().unwrap();
 
         if let Err(e) = handle_connection(serial_port) {
             eprintln!("\n\nError: {}", e);
             eprintln!("Disconnected. Retrying Connection...\n");
-            continue;
+            continue 'main;
         }
     }
 }
 
-// —————————————————————————————————————————————————————————————————————————————————————————————————
-//                                            Functions
-// —————————————————————————————————————————————————————————————————————————————————————————————————
-
-fn find_port(port_name: &str) -> AnyResult<String> {
-    loop {
-        let serial_port = serialport::available_ports().context("Failed to list ports")?;
-
-        if !port_name.is_empty() {
-            if serial_port.iter().any(|p| p.port_name == port_name) {
-                return Ok(port_name.to_string());
-            }
-        }
-        // No port specified
-        else {
-            // Auto find the port with the longest name or largest number
-            if let Some(value) = auto_select_port(serial_port) {
-                return Ok(value);
-            }
-        }
-
-        print!(".");
-        io::stdout().flush()?;
-        sleep(Duration::from_secs(1));
-    }
-}
-
-/// Find the port with the longest name or largest number
-fn auto_select_port(serial_port: Vec<serialport::SerialPortInfo>) -> Option<String> {
-    if serial_port.is_empty() {
-        return None;
-    }
-
-    let mut sorted_ports = serial_port.clone();
-    sorted_ports.sort_by_key(|k| k.port_name.len());
-
-    let name_len = sorted_ports[0].port_name.len();
-
-    if let Some(port) = serial_port
-        .iter()
-        .filter(|f| f.port_name.len() == name_len)
-        .max_by_key(|p| generate_key_from_suffix(&p.port_name))
-    {
-        return Some(port.port_name.clone());
-    }
-
-    None
-}
-
-fn generate_key_from_suffix(name: &str) -> u16 {
-    if name.is_empty() {
-        return 0;
-    };
-
-    let mut key = 0_u16;
-
-    if name.ends_with(|pat: char| pat.is_numeric()) {
-        name.chars()
-            .rev()
-            .take_while(|c| c.is_numeric())
-            .enumerate()
-            .for_each(|f| {
-                let i = f.0;
-                let n = f.1.to_digit(10).unwrap() as u16;
-                key += if i == 0 { n } else { i as u16 * 10 * n };
-            });
-        return key;
-    }
-    else {
-        return 0;
-    }
-}
-
-fn connect_to_port(port_name: &str) -> AnyResult<PortType> {
-    println!("Connecting to port: {}", port_name.to_owned().red());
-    io::stdout().flush()?;
-
-    const ATTEMPTS: u8 = 5;
-
-    for attempt in 0..=ATTEMPTS {
-        match serialport::new(port_name, 115_200)
-            .dtr_on_open(true)
-            .timeout(TIMEOUT)
-            .open_native()
-        {
-            Ok(port) => {
-                return Ok(port);
-            }
-            Err(e) if attempt == ATTEMPTS => {
-                return Err(e).context("Failed after 5 attempts");
-            }
-            Err(e) => {
-                println!("Port Error: {}", e.to_string().red());
-            }
-        }
-        sleep(Duration::from_millis(500));
-    }
-    unreachable!()
-}
-
-// ————————————————————————————————————— Handle Serial Data ————————————————————————————————————————
+// ————————————————————————————————————— Handle Connection ————————————————————————————————————————
 
 fn handle_connection(serial_port: PortType) -> AnyResult<()> {
     let port_name = serial_port.name().unwrap();
@@ -470,4 +370,104 @@ fn spawn_serial_thread(
         // Done
         main_thread_tx.send(ThreadMsg::Exiting).unwrap();
     })
+}
+
+// —————————————————————————————————————————————————————————————————————————————————————————————————
+//                                            Functions
+// —————————————————————————————————————————————————————————————————————————————————————————————————
+
+fn find_port(port_name: &str) -> AnyResult<String> {
+    loop {
+        let serial_port = serialport::available_ports().context("Failed to list ports")?;
+
+        if !port_name.is_empty() {
+            if serial_port.iter().any(|p| p.port_name == port_name) {
+                return Ok(port_name.to_string());
+            }
+        }
+        // No port specified
+        else {
+            // Auto find the port with the longest name or largest number
+            if let Some(value) = auto_select_port(serial_port) {
+                return Ok(value);
+            }
+        }
+
+        print!(".");
+        io::stdout().flush()?;
+        sleep(Duration::from_secs(1));
+    }
+}
+
+/// Find the port with the longest name or largest number
+fn auto_select_port(serial_port: Vec<serialport::SerialPortInfo>) -> Option<String> {
+    if serial_port.is_empty() {
+        return None;
+    }
+
+    let mut sorted_ports = serial_port.clone();
+    sorted_ports.sort_by_key(|k| k.port_name.len());
+
+    let name_len = sorted_ports[0].port_name.len();
+
+    if let Some(port) = serial_port
+        .iter()
+        .filter(|f| f.port_name.len() == name_len)
+        .max_by_key(|p| generate_key_from_suffix(&p.port_name))
+    {
+        return Some(port.port_name.clone());
+    }
+
+    None
+}
+
+fn generate_key_from_suffix(name: &str) -> u16 {
+    if name.is_empty() {
+        return 0;
+    };
+
+    let mut key = 0_u16;
+
+    if name.ends_with(|pat: char| pat.is_numeric()) {
+        name.chars()
+            .rev()
+            .take_while(|c| c.is_numeric())
+            .enumerate()
+            .for_each(|f| {
+                let i = f.0;
+                let n = f.1.to_digit(10).unwrap() as u16;
+                key += if i == 0 { n } else { i as u16 * 10 * n };
+            });
+        return key;
+    }
+    else {
+        return 0;
+    }
+}
+
+fn connect_to_port(port_name: &str) -> AnyResult<PortType> {
+    println!("Connecting to port: {}", port_name.to_owned().red());
+    io::stdout().flush()?;
+
+    const ATTEMPTS: u8 = 5;
+
+    for attempt in 0..=ATTEMPTS {
+        match serialport::new(port_name, 115_200)
+            .dtr_on_open(true)
+            .timeout(TIMEOUT)
+            .open_native()
+        {
+            Ok(port) => {
+                return Ok(port);
+            }
+            Err(e) if attempt == ATTEMPTS => {
+                return Err(e).context("Failed after 5 attempts");
+            }
+            Err(e) => {
+                println!("Port Error: {}", e.to_string().red());
+            }
+        }
+        sleep(Duration::from_millis(500));
+    }
+    unreachable!()
 }
