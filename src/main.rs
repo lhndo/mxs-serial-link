@@ -68,7 +68,7 @@ fn main() {
     let direct = args.contains(&"direct".to_string());
     DIRECT_MODE.set(direct).unwrap();
 
-    // ———————————————————————————————————————— Main Loop ——————————————————————————————————————————
+    // ————————————————————————————————————————   Main  ——————————————————————————————————————————
 
     println!("\n=== Serial Link Started ===");
 
